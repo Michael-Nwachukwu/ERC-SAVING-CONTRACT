@@ -1,14 +1,23 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "./interfaces/IERC20.sol";
 
 contract SaveERC20 {
     
+    // custom errors
+    error AddressZeroDetected();
+    error ZeroValueNotAllowed();
+    error CantSendToZeroAddress();
+    error InsufficientFunds();
+    error NotOwner();
+    error InsufficientContractBalance();
+
+
     address public owner;
     address public tokenAddress;
     mapping(address => uint256) balances;
 
+    // events to be emited
     event DepositSuccessful(address indexed user, uint256 indexed amount);
     event WithdrawalSuccessful(address indexed user, uint256 indexed amount);
     event TransferSuccessful(address indexed from, address indexed _to, uint256 indexed amount);
@@ -18,20 +27,21 @@ contract SaveERC20 {
         tokenAddress = _tokenAddress;
     }
 
-    // modifier onlyOwner() {
-    //     require(owner == msg.sender, "not owner");
-    //     _;
-    // }
-
-
+    // deposit function
     function deposit(uint256 _amount) external {
-        require(msg.sender != address(0), "zero addres detected");
+        if(msg.sender == address(0)) {
+            revert AddressZeroDetected();
+        }
 
-        require(_amount > 0, "can't deposit zero");
+        if(_amount <= 0) {
+            revert ZeroValueNotAllowed();
+        }
 
         uint256 _userTokenBalance = IERC20(tokenAddress).balanceOf(msg.sender);
 
-        require(_userTokenBalance >= _amount, "insufficient amount");
+        if(_userTokenBalance < _amount) {
+            revert InsufficientFunds();
+        }
 
         IERC20(tokenAddress).transferFrom(msg.sender, address(this), _amount);
 
@@ -40,13 +50,21 @@ contract SaveERC20 {
         emit DepositSuccessful(msg.sender, _amount);
     }
 
+    // withdraw function
     function withdraw(uint256 _amount) external {
-        require(msg.sender != address(0), "zero addres detected");
-        require(_amount > 0, "can't deposit zero");
+        if(msg.sender == address(0)) {
+            revert AddressZeroDetected();
+        }
+
+        if(_amount <= 0) {
+            revert ZeroValueNotAllowed();
+        }
 
         uint256 _userBalance = balances[msg.sender];
 
-        require(_amount <= _userBalance, "insufficient amount");
+        if(_amount > _userBalance) {
+            revert InsufficientFunds();
+        }
 
         balances[msg.sender] -= _amount;
 
@@ -55,12 +73,13 @@ contract SaveERC20 {
         emit WithdrawalSuccessful(msg.sender, _amount);
     }
 
+    // get balance 
     function myBalance() external view returns(uint256) {
-        onlyOwner();
         return balances[msg.sender];
     }
 
     function getAnyBalance(address _user) external view returns(uint256) {
+        onlyOwner();
         return balances[_user];
     }
 
@@ -70,11 +89,16 @@ contract SaveERC20 {
     }
 
     function transferFunds(address _to, uint256 _amount) external {
-        require(msg.sender != address(0), "zero address detected");
+        if(msg.sender == address(0)) {
+            revert AddressZeroDetected();
+        }
+        if(_to == address(0)) {
+            revert CantSendToZeroAddress();
+        }
 
-        require(_to != address(0), "can't send to");
-        
-        require(balances[msg.sender] >= _amount, "Insufficient funds!");
+        if(_amount > balances[msg.sender]) {
+            revert InsufficientFunds();
+        }
 
         balances[msg.sender] -= _amount;
 
@@ -83,24 +107,40 @@ contract SaveERC20 {
         emit TransferSuccessful(msg.sender, _to, _amount);
     }
 
+    // depositforAnotherUserFromWithin
     function depositForAnotherUserFromWithin(address _user, uint256 _amount) external {
-        require(msg.sender != address(0), "zero address detected");
-        require(_user != address(0), "can't send to");
+        if(msg.sender == address(0)) {
+            revert AddressZeroDetected();
+        }
 
-        require(balances[msg.sender] >= _amount, "insufficent amount");
+        if(_user == address(0)) {
+            revert CantSendToZeroAddress();
+        }
+
+        if(_amount > balances[msg.sender]) {
+            revert InsufficientFunds();
+        }
 
         balances[msg.sender] -= _amount;
         balances[_user] += _amount;
     }
 
+    // deposFor another user
     function depositForAnotherUser(address _user, uint256 _amount) external {
-        require(msg.sender != address(0), "zero address detected");
-        require(_user != address(0), "can't send to");
+        if(msg.sender == address(0)) {
+            revert AddressZeroDetected();
+        }
+
+        if(_user == address(0)) {
+            revert CantSendToZeroAddress();
+        }
 
 
         uint256 _userTokenBalance = IERC20(tokenAddress).balanceOf(msg.sender);
 
-        require(_userTokenBalance >= _amount, "insufficient amount");
+        if(_amount > _userTokenBalance) {
+            revert InsufficientFunds();
+        }
 
         IERC20(tokenAddress).transferFrom(msg.sender, address(this), _amount);
 
@@ -109,13 +149,17 @@ contract SaveERC20 {
 
     function ownerWithdraw(uint256 _amount) external {
         onlyOwner();
-        require(IERC20(tokenAddress).balanceOf(address(this)) >= _amount, "insufficient funds");
+
+        if(_amount > IERC20(tokenAddress).balanceOf(address(this))) {
+            revert InsufficientContractBalance();
+        }
 
         IERC20(tokenAddress).transfer(owner, _amount);
     }
 
-
     function onlyOwner() private view {
-        require(owner == msg.sender, "not owner");
+        if(msg.sender != owner) {
+            revert NotOwner();
+        }
     }
 }

@@ -97,10 +97,78 @@ describe("SavingERC20TokenContract", function () {
 
       expect(await token.balanceOf(otherAccount)).to.equal(otherAccountBalanceBefore - depositAmount);
 
-      // expect( (await saveERC20.connect(otherAccount).myBalance()).to.equal(depositAmount));
+      expect(await saveERC20.connect(otherAccount).myBalance()).to.equal(depositAmount);
 
-      // expect((await saveERC20.getContractBalance()).to.equal(depositAmount));
+      expect(await saveERC20.getContractBalance()).to.equal(depositAmount);
 
+    });
+
+    it("Should emit an event after successful deposit", async function () {
+      const { saveERC20, otherAccount, token } = await loadFixture(deploySaveERC20);
+
+      const trfAmount = ethers.parseUnits("100", 18);
+      await token.transfer(otherAccount, trfAmount);
+
+      await token.connect(otherAccount).approve(saveERC20, trfAmount);
+
+      const depositAmount = ethers.parseUnits("10", 18);
+
+      await expect(saveERC20.connect(otherAccount).deposit(depositAmount))
+        .to.emit(saveERC20, "DepositSuccessful")
+        .withArgs(otherAccount.address, depositAmount);
+    });
+
+    it("Should revert on zero deposit", async function () {
+      const { saveERC20, otherAccount, token } = await loadFixture(deploySaveERC20);
+
+      const depositAmount = ethers.parseUnits("0", 18);
+
+      await expect(
+        saveERC20.connect(otherAccount).deposit(depositAmount)
+      ).to.be.revertedWithCustomError(saveERC20, "ZeroValueNotAllowed");
+    });
+
+  });
+
+
+
+  describe("Withdraw", function () {
+    it("Should withdraw successfully", async function () {
+      const { saveERC20, owner, otherAccount, token } = await loadFixture(deploySaveERC20);
+
+      // Transfer ERC20 token from owner to otherAccount
+      const trfAmount = ethers.parseUnits("100", 18);
+      await token.transfer(otherAccount, trfAmount);
+      expect(await token.balanceOf(otherAccount)).to.equal(trfAmount);
+
+      // otherAccount approves contract address to spend some tokens
+      await token.connect(otherAccount).approve(saveERC20, trfAmount);
+
+      const otherAccountBalBefore = await token.balanceOf(otherAccount);
+
+      // otherAccount deposits into SaveERC20 contract
+      const depositAmount = ethers.parseUnits("10", 18);
+
+      await saveERC20.connect(otherAccount).deposit(depositAmount);
+
+      expect(await token.balanceOf(otherAccount)).to.equal(otherAccountBalBefore - depositAmount);
+
+      expect(await saveERC20.connect(otherAccount).myBalance()).to.equal(depositAmount);
+      expect(await saveERC20.getContractBalance()).to.equal(depositAmount);
+
+      // otherAccount withdraw from contract
+      const initBalBeforeWithdrawal = await token.balanceOf(otherAccount);
+      const withdrawAmount = ethers.parseUnits("5", 18);
+
+      await saveERC20.connect(otherAccount).withdraw(withdrawAmount);
+
+      const balAfterWithdrawal = await token.balanceOf(otherAccount);
+
+      expect(await saveERC20.getContractBalance()).to.equal(depositAmount - withdrawAmount);
+
+      expect(await saveERC20.connect(otherAccount).myBalance()).to.equal(depositAmount - withdrawAmount);
+      
+      expect(await token.balanceOf(otherAccount)).to.equal(initBalBeforeWithdrawal + withdrawAmount);
     });
   });
 

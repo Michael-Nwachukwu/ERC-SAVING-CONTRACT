@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
-
 contract SaveEther {
+
+    error AddresZeroDetected();
+    error CantDepositZero();
+    error InsufficientFunds(string errorMessage );
 
     address owner;
 
@@ -16,8 +19,14 @@ contract SaveEther {
     event TransferSuccessful(address indexed _user,address indexed _to, uint256 indexed  _amount);
     
     function deposit() external payable  {
-        require(msg.sender != address(0), "zero address detected");
-        require(msg.value > 0, "you cannot deposit zero");
+        if (msg.sender == address(0)) {
+            revert AddresZeroDetected();
+        }
+        if (msg.value <= 0) {
+            revert CantDepositZero();
+        }
+        // require(msg.sender != address(0), "zero address detected");
+        // require(msg.value > 0, "you cannot deposit zero");
 
         balances[msg.sender] += msg.value;
 
