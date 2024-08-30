@@ -37,6 +37,7 @@ contract SaveEther {
     }
 
     function getContractBalance() external view returns(uint256) {
+        onlyOwner();
         return address(this).balance;
     }
 
@@ -55,7 +56,11 @@ contract SaveEther {
 
         (bool sent, ) = _to.call{value: _amount}("");
         require(sent, "transfer failed");
-        
+
+    }
+
+    function onlyOwner() private view {
+        require(owner == msg.sender, "not owner");
     }
 
 }

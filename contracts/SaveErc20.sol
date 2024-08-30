@@ -18,10 +18,10 @@ contract SaveERC20 {
         tokenAddress = _tokenAddress;
     }
 
-    modifier onlyOwner() {
-        require(owner == msg.sender, "not owner");
-        _;
-    }
+    // modifier onlyOwner() {
+    //     require(owner == msg.sender, "not owner");
+    //     _;
+    // }
 
 
     function deposit(uint256 _amount) external {
@@ -56,14 +56,16 @@ contract SaveERC20 {
     }
 
     function myBalance() external view returns(uint256) {
+        onlyOwner();
         return balances[msg.sender];
     }
 
-    function getAnyBalance(address _user) external view onlyOwner returns(uint256) {
+    function getAnyBalance(address _user) external view returns(uint256) {
         return balances[_user];
     }
 
-    function getContractBalance() external view onlyOwner returns(uint256) {
+    function getContractBalance() external view returns(uint256) {
+        onlyOwner();
         return IERC20(tokenAddress).balanceOf(address(this));
     }
 
@@ -105,9 +107,15 @@ contract SaveERC20 {
         balances[_user] += _amount;
     }
 
-    function ownerWithdraw(uint256 _amount) external onlyOwner {
+    function ownerWithdraw(uint256 _amount) external {
+        onlyOwner();
         require(IERC20(tokenAddress).balanceOf(address(this)) >= _amount, "insufficient funds");
 
         IERC20(tokenAddress).transfer(owner, _amount);
+    }
+
+
+    function onlyOwner() private view {
+        require(owner == msg.sender, "not owner");
     }
 }
